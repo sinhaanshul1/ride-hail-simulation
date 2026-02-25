@@ -60,6 +60,8 @@ class City:
                 # print(edge)
             except KeyError:
                 print(colored(f"Keys for edge: {str(self.graph.edges[from_node, to_node, key].keys())}", "red"))
+            except AttributeError:
+                print(colored(f"Maxspeed: {str(self.graph.edges[from_node, to_node, key]['maxspeed'])}", "blue"))
 
     def get_route_by_address(self, start, end):
         start = ox.geocode(start)
@@ -102,34 +104,19 @@ class City:
         if self.graph is None:
             print("No graph to visualize. Please load a city first.")
             return
-        # fig, ax = ox.plot.plot_graph(self.graph)
-        # if isinstance(self._route, LineString):
-        #     xs, ys = self._route.xy
-        #     ax.plot(xs, ys, color='red', linewidth=3)
 
-        # elif isinstance(self._route, MultiLineString):
-        #     for line in self._route.geoms:
-        #         xs, ys = line.xy
-        #         ax.plot(xs, ys, color='red', linewidth=3)
-        # plt.show()
-        
         fig, ax = ox.plot_graph(
             self.graph,
             node_size=0,
-            edge_color="lightgray",
+            edge_color="#A0A0A0",
             edge_linewidth=1,
             show=False,
-            close=False
+            close=False,
+            bgcolor='white',
         )
-        # self.plot_geometry(
-        #     ax,
-        #     self._route,
-        #     color="red",
-        #     linewidth=3,
-        #     alpha=0.7,
-        # )
+        fig.tight_layout(pad=0)
+        ax.set_position([0, 0, 1, 1])
 
-        # plt.show()
         return fig, ax
 
 if __name__ == "__main__":
