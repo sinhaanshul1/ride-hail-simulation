@@ -1,23 +1,51 @@
-from .node import Node
-from .edge import Edge
+
 import random
 import matplotlib.pyplot as plt
-from vehicles import *
 import osmnx as ox
 import networkx as nx
 from termcolor import colored
+from shapely.geometry import LineString, MultiLineString
+import shapely
 
 class City:
     def __init__(self, vehicles=[]):
         # CHAGNE TO GRAPH ADJACENCY LIST REPRESNTATION
         self.graph = None
-        self.vehicles = vehicles
+        self._route = None
     
     def load_city_from_address(self, address, radius=2000):
-        self.graph = ox.graph_from_address(address, radius, network_type="drive")
+        print(colored(f"Loading city from address: {address} with radius: {radius} meters", "green"))
+        try:
+            self.graph = ox.graph_from_address(address, radius, network_type="drive")
+        except Exception as e:
+            print(colored(f"Error occurred while loading city from address: {e}", "red"))
+            exit()
+        print(colored("City loaded successfully", "green"))
+        self.add_time_to_edges()
     
     def load_city_from_place(self, location):
-        self.graph = ox.graph_from_place(location, network_type="drive")
+        print(colored(f"Loading city from place: {location}", "green"))
+        try:
+            self.graph = ox.graph_from_place(location, network_type="drive")
+        except Exception as e:
+            print(colored(f"Error occurred while loading city from place: {e}", "red"))
+            exit()
+        print(colored("City loaded successfully", "green"))
+        self.add_time_to_edges()
+
+    def print_nodes(self):
+        if self.graph is None:
+            print("Graph not loaded yet")
+            return
+        for node in self.graph.nodes(data=True):
+            print(node)
+    
+    def print_edges(self):
+        if self.graph is None:
+            print("Graph not loaded yet")
+            return
+        for edge in self.graph.edges(keys=True, data=True):
+            print(edge)
     
     def add_time_to_edges(self):
         for edge in self.graph.edges(keys=True, data=True):
@@ -29,33 +57,84 @@ class City:
                 speed = int(data['maxspeed'].split()[0])
                 distance = data['length']
                 self.graph.edges[from_node, to_node, key]['time'] = distance / speed
-                print(edge)
+                # print(edge)
             except KeyError:
                 print(colored(f"Keys for edge: {str(self.graph.edges[from_node, to_node, key].keys())}", "red"))
 
-    def get_route(self, start, end):
-        orig = ox.distance.nearest_nodes(self.graph, start[1], start[0])
-        dest = ox.distance.nearest_nodes(self.graph, end[1], end[0])
-        return nx.shortest_path(self.graph, orig, dest, weight='time')
+    def get_route_by_address(self, start, end):
+        start = ox.geocode(start)
+        end = ox.geocode(end)
+        return self.get_route(start, end)
+    
+    def get_route(self, start_lat_long, end_lat_long):
+        orig = ox.distance.nearest_nodes(self.graph, start_lat_long[1], start_lat_long[0])
+        dest = ox.distance.nearest_nodes(self.graph, end_lat_long[1], end_lat_long[0])
+        route = nx.shortest_path(self.graph, orig, dest, weight='time')
+        path = []
+        for from_node, to_node in zip(route[:-1], route[1:]):
+            try:
+                edge_data = self.graph.get_edge_data(from_node, to_node)[0]["geometry"]
+                path.append(edge_data)
+            except KeyError:
+                x1, y1 = self.graph.nodes[from_node]["x"], self.graph.nodes[from_node]["y"]
+                x2, y2 = self.graph.nodes[to_node]["x"], self.graph.nodes[to_node]["y"]
+                line = LineString([(x1, y1), (x2, y2)])
+                path.append(line)
+            # print(edge_data)
+        self._route = shapely.line_merge(MultiLineString(path))
+
+        # print(route)
+        return self._route
+    
+    def plot_geometry(self, ax, geom, **kwargs):
+        if isinstance(geom, LineString):
+            xs, ys = geom.xy
+            print(xs, ys)
+            ax.plot(xs, ys, **kwargs)
+
+        elif isinstance(geom, MultiLineString):
+            for line in geom.geoms:
+                xs, ys = line.xy
+                ax.plot(xs, ys, **kwargs)
+
         
     def visualize_city(self):
         if self.graph is None:
             print("No graph to visualize. Please load a city first.")
             return
-        fig, ax = ox.plot.plot_graph_route(
+        # fig, ax = ox.plot.plot_graph(self.graph)
+        # if isinstance(self._route, LineString):
+        #     xs, ys = self._route.xy
+        #     ax.plot(xs, ys, color='red', linewidth=3)
+
+        # elif isinstance(self._route, MultiLineString):
+        #     for line in self._route.geoms:
+        #         xs, ys = line.xy
+        #         ax.plot(xs, ys, color='red', linewidth=3)
+        # plt.show()
+        
+        fig, ax = ox.plot_graph(
             self.graph,
-            route_color='r',
-            route_linewidth=4,
-            route_alpha=0.6,
-            orig_dest_size=100,
-            show=True,
-            close=True
+            node_size=0,
+            edge_color="lightgray",
+            edge_linewidth=1,
+            show=False,
+            close=False
         )
-        plt.show()
+        # self.plot_geometry(
+        #     ax,
+        #     self._route,
+        #     color="red",
+        #     linewidth=3,
+        #     alpha=0.7,
+        # )
+
+        # plt.show()
+        return fig, ax
 
 if __name__ == "__main__":
     city = City()
-    city.generate_random_city(30, 50)
-    city.save_city("random_city.txt")
-    print("Random city generated and saved to random_city.txt")
+    city.load_city_from_address("1449 Primrose Way, Cupertino, CA")
+    city.print_nodes()
+    city.print_edges()
     city.visualize_city()
