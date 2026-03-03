@@ -6,12 +6,12 @@ from matplotlib.animation import FuncAnimation
 import networkx
 import numpy as np
 from city import City
-from vehicles import Vehicle
+from vehicles import Vehicle, vehicle
 from vehicles.vehicle_status import VehicleStatus
 
 
 class Simulation:
-    def __init__(self, city: City, vehicles: list[Vehicle], dt=0.00001):
+    def __init__(self, city: City, vehicles: list[Vehicle], dt=0.05):
         """
         city: City object
         vehicles: list[Vehicle]
@@ -40,18 +40,22 @@ class Simulation:
                     vehicle.set_status(VehicleStatus.IDLE)
                 elif len(vehicle.routes()) == 1:
                     vehicle.routes().pop(0)
+                    vehicle.segment_index = 0
+                    vehicle.segment_progress = 0
                     print('Route complete, no more routes in queue')
                     vehicle.set_status(VehicleStatus.IDLE)
                 else:
                     vehicle.routes().pop(0)
-                    if vehicle.x() == vehicle.routes()[0].interpolate(0).x and vehicle.y() == vehicle.routes()[0].interpolate(0).y:
+                    vehicle.segment_index = 0
+                    vehicle.segment_progress = 0
+                    if vehicle.x() == vehicle.routes()[0][0][0].interpolate(0).x and vehicle.y() == vehicle.routes()[0][0][0].interpolate(0).y:
                         print('Started new route')
                         vehicle.set_status(VehicleStatus.IN_ROUTE)
                         
                     else:
                         print('Added new route')
                         vehicle.set_status(VehicleStatus.TO_PICKUP)
-                        vehicle.routes().insert(0, self.city.get_route((vehicle.y(), vehicle.x()), (vehicle.routes()[0].interpolate(0).y, vehicle.routes()[0].interpolate(0).x)))
+                        vehicle.routes().insert(0, self.city.get_route((vehicle.y(), vehicle.x()), (vehicle.routes()[0][0][0].interpolate(0).y, vehicle.routes()[0][0][0].interpolate(0).x)))
                     vehicle.set_route_complete(False)
 
 
@@ -102,7 +106,7 @@ class Simulation:
 
         return (self.scatter,)
 
-    def run(self, steps=500, interval=100):
+    def run(self, steps=500, interval=50):
         """
         Run animated simulation
         steps: number of animation frames
@@ -115,12 +119,11 @@ class Simulation:
 
         num_vehicles = 100
         for i in range(num_vehicles):
-            x = np.random.uniform(x_min, x_max)
-            y = np.random.uniform(y_min, y_max)
+            x,y = self.city.get_random_point()
             self.vehicles.append(Vehicle(x=x, y=y, vehicle_id=i+3, speed_mps=12))
         
 
-        for _ in range(20):
+        for _ in range(1000):
             try:
                 self.vehicles[int(np.random.uniform(0, len(self.vehicles)-1))].assign_route(self.city.get_route((np.random.uniform(y_min, y_max), np.random.uniform(x_min, x_max)), (np.random.uniform(y_min, y_max), np.random.uniform(x_min, x_max))))
             except networkx.exception.NetworkXNoPath:
@@ -139,8 +142,9 @@ class Simulation:
 
 if __name__ == "__main__":
     city = City()
-    # city.load_city_from_address("1449 Primrose Way, Cupertino, CA", radius=2000)
-    city.load_city_from_place("San Francisco, CA")
+    # city.load_city_from_address("1449 Primrose Way, Cupertino, CA", radius=10000)
+    city.load_city_from_address("415 Mission Street, San Francisco, CA", radius=10000)
+    # city.load_city_from_place("San Francisco, CA")
     vehicles = [
         Vehicle(x=-122.035953, y=37.297, vehicle_id=1, speed_mps=12),
         Vehicle(x=0, y=0, vehicle_id=2, speed_mps=12),
@@ -151,10 +155,11 @@ if __name__ == "__main__":
     sim = Simulation(city, vehicles)
     
 
-    # route_geom_1 = city.get_route_by_address("1449 Primrose Way, Cupertino, CA", "7588 Lockford Court, Cupertino, CA")
+    # route_geom_1 = city.get_route_by_address("1449 Primrose Way, Cupertino, CA", "10050 S De Anza Blvd, Cupertino, CA")
     # route_geom_2 = city.get_route_by_address("7658 Normandy Way, Cupertino, CA", "7483 Moltzen Drive, Cupertino, CA")
     # vehicles[0].assign_route(route_geom_1)
-    # vehicles[0].assign_route(city.get_route("7588 Lockford Court, Cupertino, CA", "7658 Normandy Way, Cupertino, CA"))
+    # vehicles[0].assign_route(route_geom_2)
+    # vehicles[0].assign_route(city.get_route_by_address("7588 Lockford Court, Cupertino, CA", "7658 Normandy Way, Cupertino, CA"))
     # vehicles[0].assign_route(city.get_route_by_address("7658 Normandy Way, Cupertino, CA", "7483 Moltzen Drive, Cupertino, CA"))
     # vehicles[1].assign_route(route_geom_2)
     sim.run()

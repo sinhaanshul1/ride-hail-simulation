@@ -18,6 +18,8 @@ class Vehicle:
         self.color = self._get_color()
         self._route_complete = False
         self.distance_traveled = 0
+        self.segment_index = 0
+        self.segment_progress = 0
     def routes(self):
         return self._routes
 
@@ -38,18 +40,32 @@ class Vehicle:
         self.color = self._get_color()
     
     def update(self, dt):
-        # if self.status == VehicleStatus.IN_ROUTE:
         if self._routes:
-            print(self._get_color())
-            self.distance_traveled += self.speed_mps * dt
-            self.distance_traveled = min(self.distance_traveled, self._routes[0].length)
-            position = self._routes[0].interpolate(self.distance_traveled)
+            segment, speed = self._routes[0][self.segment_index]
+            self.segment_progress += speed / 11000 * dt
+            self.segment_progress = min(self.segment_progress, segment.length)
+            position = segment.interpolate(self.segment_progress)
             self._x = position.x
             self._y = position.y
             # print("Distance travelled: ", self.distance_traveled, "Length of route: ", self._routes[0].length)
-            if self.distance_traveled >= self._routes[0].length:
-                self._route_complete = True
-                self.distance_traveled = 0
+            if self.segment_progress >= segment.length:
+                self.segment_index += 1
+                self.segment_progress = 0
+                if self.segment_index >= len(self._routes[0]):
+                    self._route_complete = True
+                    self.distance_traveled = 0
+                    self.segment_index = 0
+        # # if self.status == VehicleStatus.IN_ROUTE:
+        # if self._routes:
+        #     self.distance_traveled += self.speed_mps * dt
+        #     self.distance_traveled = min(self.distance_traveled, self._routes[0].length)
+        #     position = self._routes[0].interpolate(self.distance_traveled)
+        #     self._x = position.x
+        #     self._y = position.y
+        #     # print("Distance travelled: ", self.distance_traveled, "Length of route: ", self._routes[0].length)
+        #     if self.distance_traveled >= self._routes[0].length:
+        #         self._route_complete = True
+        #         self.distance_traveled = 0
 
     def _get_color(self):
         if self.status == VehicleStatus.IDLE:
@@ -67,13 +83,10 @@ class Vehicle:
         self.status = VehicleStatus.IN_ROUTE
         self.color = self._get_color()
         self.distance_traveled = 0
-        self.position = self._routes[0].interpolate(0)
-        # for k in range(100):
-        #     try:
-        #         pos = self._route.interpolate(k * self._route.length / 100)
-        #         print(f"Route point {k}: ({pos.x}, {pos.y})")
-        #     except Exception as e:
-        #         print(f"Error interpolating route at {k}%: {e}")
+        self.segment_index = 0
+        self.segment_progress = 0
+        # print(self._routes)
+        self.position = self._routes[0][0][0].interpolate(0)
     
     def __str__(self):
         return f"Vehicle({self.vehicle_id}, ({self.x}, {self.y}), capacity={self.capacity}, status={self.status})"

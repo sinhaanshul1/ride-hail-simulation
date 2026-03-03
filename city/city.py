@@ -68,7 +68,7 @@ class City:
         end = ox.geocode(end)
         return self.get_route(start, end)
     
-    def get_route(self, start_lat_long, end_lat_long):
+    def old_get_route(self, start_lat_long, end_lat_long):
         orig = ox.distance.nearest_nodes(self.graph, start_lat_long[1], start_lat_long[0])
         dest = ox.distance.nearest_nodes(self.graph, end_lat_long[1], end_lat_long[0])
         route = nx.shortest_path(self.graph, orig, dest, weight='time')
@@ -86,7 +86,39 @@ class City:
         self._route = shapely.line_merge(MultiLineString(path))
 
         # print(route)
+        # return path
         return self._route
+    
+    def get_route(self, start_lat_long, end_lat_long):
+        orig = ox.distance.nearest_nodes(self.graph, start_lat_long[1], start_lat_long[0])
+        dest = ox.distance.nearest_nodes(self.graph, end_lat_long[1], end_lat_long[0])
+        route = nx.shortest_path(self.graph, orig, dest, weight='time')
+        path = []
+        for from_node, to_node in zip(route[:-1], route[1:]):
+            try:
+                edge_data = self.graph.get_edge_data(from_node, to_node)[0]["geometry"]
+                max_speed = self._parse_maxspeed(self.graph.get_edge_data(from_node, to_node)[0]["maxspeed"])
+                path.append((edge_data, max_speed))
+            except KeyError:
+                x1, y1 = self.graph.nodes[from_node]["x"], self.graph.nodes[from_node]["y"]
+                x2, y2 = self.graph.nodes[to_node]["x"], self.graph.nodes[to_node]["y"]
+                line = LineString([(x1, y1), (x2, y2)])
+                path.append((line, 25))
+            # print(edge_data)
+        # self._route = shapely.line_merge(MultiLineString(path))
+
+        # print(route)
+        # return path
+        return path
+    
+    def _parse_maxspeed(self, maxspeed):
+        if isinstance(maxspeed, list):
+            maxspeed = maxspeed[0]
+        try:
+            return int(maxspeed.split()[0])
+        except (ValueError, AttributeError):
+            return 25  # Default speed if parsing fails
+    
     
     def plot_geometry(self, ax, geom, **kwargs):
         if isinstance(geom, LineString):
@@ -118,6 +150,11 @@ class City:
         ax.set_position([0, 0, 1, 1])
 
         return fig, ax
+    def get_random_point(self):
+        node = random.choice(list(self.graph.nodes))
+        x = self.graph.nodes[node]['x']
+        y = self.graph.nodes[node]['y']
+        return x, y
 
 if __name__ == "__main__":
     city = City()
