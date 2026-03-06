@@ -34,9 +34,7 @@ class Simulation:
         for vehicle in self.vehicles:
             vehicle.update(self.dt)
             if vehicle.route_complete():
-                print('This should print once route reached shreya\'s')
                 if len(vehicle.routes()) == 0:
-                    print('wtf')
                     vehicle.set_status(VehicleStatus.IDLE)
                 elif len(vehicle.routes()) == 1:
                     vehicle.routes().pop(0)
@@ -49,14 +47,34 @@ class Simulation:
                     vehicle.segment_index = 0
                     vehicle.segment_progress = 0
                     if vehicle.x() == vehicle.routes()[0][0][0].interpolate(0).x and vehicle.y() == vehicle.routes()[0][0][0].interpolate(0).y:
-                        print('Started new route')
                         vehicle.set_status(VehicleStatus.IN_ROUTE)
-                        
                     else:
-                        print('Added new route')
                         vehicle.set_status(VehicleStatus.TO_PICKUP)
                         vehicle.routes().insert(0, self.city.get_route((vehicle.y(), vehicle.x()), (vehicle.routes()[0][0][0].interpolate(0).y, vehicle.routes()[0][0][0].interpolate(0).x)))
                     vehicle.set_route_complete(False)
+    
+    def get_vehicle_data(self):
+        """Extract data formatted for PyDeck/Pandas"""
+        data = []
+        # PyDeck needs RGB arrays, so we map your string colors
+        color_map = {
+            'red': [255, 0, 0, 200],
+            'green': [0, 255, 0, 200],
+            'blue': [0, 0, 255, 200],
+            'yellow': [255, 255, 0, 200],
+            'grey': [128, 128, 128, 200]
+        }
+        
+        for v in self.vehicles:
+            if v.x() is not None and v.y() is not None:
+                data.append({
+                    "id": v.vehicle_id,
+                    "lon": v.x(), # Note: x is lon, y is lat
+                    "lat": v.y(),
+                    "status": str(v.status),
+                    "color": color_map.get(v.color, [255, 255, 255, 200])
+                })
+        return data
 
 
     def setup_visualization(self):
