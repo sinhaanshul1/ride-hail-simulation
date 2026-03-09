@@ -1,6 +1,6 @@
 import random
 from .vehicle_status import VehicleStatus
-from city import City
+from .city import City
 
 
 COLORS = {VehicleStatus.IDLE: 'red', VehicleStatus.TO_PICKUP: 'yellow', VehicleStatus.IN_ROUTE: 'green', VehicleStatus.OFFLINE: 'grey'}
@@ -87,6 +87,7 @@ class Vehicle:
         self.segment_progress = 0
         # print(self._routes)
         self.position = self._routes[0][0][0].interpolate(0)
+        
     
     def __str__(self):
         return f"Vehicle({self.vehicle_id}, ({self.x}, {self.y}), capacity={self.capacity}, status={self.status})"

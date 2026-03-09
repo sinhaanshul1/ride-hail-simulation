@@ -6,8 +6,8 @@ import pydeck as pdk
 import time
 import numpy as np
 
-from city import City
-from vehicles import Vehicle
+from model import City, Vehicle, VehicleStatus
+
 from simulation import Simulation
 
 st.set_page_config(layout="wide", page_title="Dashboard")
@@ -67,14 +67,17 @@ st.markdown("---") # Adds a nice horizontal divider line
 st.subheader("System Analytics")
 
 # Create a new row with two columns (making the chart wider than the table)
-bottom_col1, bottom_col2 = st.tabs(["Vehicle Activity Over Time", "Current Vehicle Status"]) 
+bottom_col1, bottom_col2, bottom_col3 = st.tabs(["Vehicle Activity Over Time", "Current Vehicle Status", "Active Orders over Time"], ) 
 
 with bottom_col1:
     chart_placeholder = st.empty()
 with bottom_col2:
     table_placeholder = st.empty()
+with bottom_col3:
+    order_chart_placeholder = st.empty()
 
 history_data = []
+order_data = []
 
 # Controls
 start_sim = st.sidebar.button("Start Simulation")
@@ -96,30 +99,39 @@ if st.session_state.running:
         
         # Get data and create DataFrame
         vehicle_data = sim.get_vehicle_data()
-        df = pd.DataFrame(vehicle_data)
+        vehicle_df = pd.DataFrame(vehicle_data)
+        current_orders = sim.get_order_data()
+        order_df = pd.DataFrame(current_orders)
+        
 
-        table_placeholder.dataframe(df.drop(columns=['color']), height=500, hide_index=True)
+        table_placeholder.dataframe(vehicle_df.drop(columns=['color']), height=500, hide_index=True)
         
         # 4. Update the Line Chart
-        active_count = len(df[df['status'] != 'VehicleStatus.IDLE'])
-        idle_count = len(df[df['status'] == 'VehicleStatus.IDLE'])
+        active_count = len(vehicle_df[vehicle_df['status'] != 'VehicleStatus.IDLE'])
+        idle_count = len(vehicle_df[vehicle_df['status'] == 'VehicleStatus.IDLE'])
+
+        order_count = len(order_df)
         
         # Append this frame's data to our history
         history_data.append({"Time": sim.time, "Active": active_count, "Idle": idle_count})
+
+        order_data.append({"Time": sim.time, "Orders": order_count})
         
         # Convert history to a dataframe and plot it
         history_df = pd.DataFrame(history_data).set_index("Time")
         chart_placeholder.line_chart(history_df)
+        order_history_df = pd.DataFrame(order_data).set_index("Time")
+        order_chart_placeholder.line_chart(order_history_df)
         
         # Update Metrics
         metric_time.metric("Sim Time", f"{sim.time:.1f}s")
-        metric_active.metric("Active Cars", len(df[df['status'] != 'VehicleStatus.IDLE']))
-        metric_idle.metric("Idle Cars", len(df[df['status'] == 'VehicleStatus.IDLE']))
+        metric_active.metric("Active Cars", len(vehicle_df[vehicle_df['status'] != 'VehicleStatus.IDLE']))
+        metric_idle.metric("Idle Cars", len(vehicle_df[vehicle_df['status'] == 'VehicleStatus.IDLE']))
 
         # Define the PyDeck layer
         layer = pdk.Layer(
             "ScatterplotLayer",
-            df,
+            vehicle_df,
             get_position="[lon, lat]",
             get_color="color",
             get_radius=10,

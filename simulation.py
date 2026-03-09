@@ -5,9 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import networkx
 import numpy as np
-from city import City
-from vehicles import Vehicle, vehicle
-from vehicles.vehicle_status import VehicleStatus
+from model import City, Vehicle, VehicleStatus, Order
 
 
 class Simulation:
@@ -19,6 +17,7 @@ class Simulation:
         """
         self.city = city
         self.vehicles = vehicles
+        self.orders = []
         self.dt = dt
         self.time = 0.0
 
@@ -30,7 +29,17 @@ class Simulation:
     def step(self):
         """Advance simulation by one timestep"""
         self.time += self.dt
-
+        # PICK A RANDOM NUMBER AND IF IT IS BELOW A THRESHOLD, CREATE A NEW ORDER
+        # ASSIGN IT TO A RANDOM VEHICLE
+        if np.random.uniform(0, 1) < 0.1: # 10% chance of new order each step
+            start = self.city.get_random_point()
+            end = self.city.get_random_point()
+            route = self.city.get_route(start[::-1], end[::-1])
+            order = Order(start_loc=start, end_loc=end, creation_time=self.time, route=route)
+            self.orders.append(order)
+            random_vehicle = self.vehicles[int(np.random.uniform(0, len(self.vehicles)-1))]
+            random_vehicle.assign_route(route)
+            order.assign_vehicle(random_vehicle)
         for vehicle in self.vehicles:
             vehicle.update(self.dt)
             if vehicle.route_complete():
@@ -74,6 +83,22 @@ class Simulation:
                     "status": str(v.status),
                     "color": color_map.get(v.color, [255, 255, 255, 200])
                 })
+        return data
+    
+    def get_order_data(self):
+        """Extract order data for visualization/metrics"""
+        data = []
+        for o in self.orders:
+            data.append({
+                "start_lon": o.start_loc[1],
+                "start_lat": o.start_loc[0],
+                "end_lon": o.end_loc[1],
+                "end_lat": o.end_loc[0],
+                "status": str(o.status),
+                "creation_time": o.creation_time,
+                "pickup_time": o.pickup_time,
+                "dropoff_time": o.dropoff_time
+            })
         return data
 
 
