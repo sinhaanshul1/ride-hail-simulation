@@ -19,10 +19,14 @@ class Order:
         self.assigned_vehicle = None
         self.status = OrderStatus.REQUESTED
     
-    def assign_vehicle(self, vehicle):
-        self.assigned_vehicle = vehicle
-        self.status = OrderStatus.ASSIGNED
+    def set_status(self, status):
+        self.status = status
     
+    def assign_vehicle(self, vehicle, time=None):
+        self.assigned_vehicle = vehicle
+        self.assign_time = time
+        self.status = OrderStatus.ASSIGNED
+
     def pick_up(self, time=None):
         self.status = OrderStatus.PICKED_UP
         self.pickup_time = time

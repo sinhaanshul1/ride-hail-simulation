@@ -23,31 +23,31 @@ def init_city_and_sim():
     
     vehicles = []
     # Initialize your 100 vehicles like you did in run()
-    for i in range(100):
+    for i in range(1):
         x, y = city.get_random_point()
         vehicles.append(Vehicle(x=x, y=y, vehicle_id=i, speed_mps=12))
         
-    sim = Simulation(city, vehicles)
+    sim = Simulation(city, vehicles, dt=0.15)
     
     # Assign some random initial routes
     x_min, x_max, y_min, y_max = -122.42, -122.38, 37.78, 37.80 # Approximate SF bounds
-    for _ in range(50):
-        try:
-            x,y = city.get_random_point()
-            x2,y2 = city.get_random_point()
-            v = vehicles[int(np.random.uniform(0, len(vehicles)-1))]
-            start = (y, x)
-            end = (y2, x2)
-            # for _ in range(1000):
-            try:
-                v.assign_route(city.get_route(start, end))
-            except networkx.exception.NetworkXNoPath:
-                print("No path found for random route, skipping assignment")
+    # for _ in range(50):
+    #     try:
+    #         x,y = city.get_random_point()
+    #         x2,y2 = city.get_random_point()
+    #         v = vehicles[int(np.random.uniform(0, len(vehicles)-1))]
+    #         start = (y, x)
+    #         end = (y2, x2)
+    #         # for _ in range(1000):
+    #         try:
+    #             v.assign_route(city.get_route(start, end))
+    #         except networkx.exception.NetworkXNoPath:
+    #             print("No path found for random route, skipping assignment")
 
-            route = city.get_route(start, end)
-            v.assign_route(route)
-        except Exception:
-            pass
+    #         route = city.get_route(start, end)
+    #         v.assign_route(route)
+    #     except Exception:
+    #         pass
 
     return city, sim
 
@@ -55,10 +55,11 @@ city, sim = init_city_and_sim()
 
 # 2. BUILD THE UI LAYOUT
 st.title("Fleet Orchestration")
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 metric_time = col1.empty()
 metric_active = col2.empty()
 metric_idle = col3.empty()
+metric_active_orders = col4.empty()
 
 # This is where the map will be drawn
 map_placeholder = st.empty()
@@ -101,7 +102,10 @@ if st.session_state.running:
         vehicle_data = sim.get_vehicle_data()
         vehicle_df = pd.DataFrame(vehicle_data)
         current_orders = sim.get_order_data()
-        order_df = pd.DataFrame(current_orders)
+        if current_orders:
+            order_df = pd.DataFrame(current_orders)
+        else:
+            order_df = pd.DataFrame(columns=["status", "start_lon", "start_lat", "end_lon", "end_lat", "creation_time", "pickup_time", "dropoff_time"])
         
 
         table_placeholder.dataframe(vehicle_df.drop(columns=['color']), height=500, hide_index=True)
@@ -127,6 +131,8 @@ if st.session_state.running:
         metric_time.metric("Sim Time", f"{sim.time:.1f}s")
         metric_active.metric("Active Cars", len(vehicle_df[vehicle_df['status'] != 'VehicleStatus.IDLE']))
         metric_idle.metric("Idle Cars", len(vehicle_df[vehicle_df['status'] == 'VehicleStatus.IDLE']))
+        metric_active_orders.metric("Orders", len(order_df[order_df['status'] == 'OrderStatus.DROPPED_OFF']))
+        # metric_active_orders.metric("Current orders", len(order_df))
 
         # Define the PyDeck layer
         layer = pdk.Layer(
@@ -134,7 +140,7 @@ if st.session_state.running:
             vehicle_df,
             get_position="[lon, lat]",
             get_color="color",
-            get_radius=10,
+            get_radius=50,
             pickable=True,
             extruded=True,
         )
@@ -149,7 +155,7 @@ if st.session_state.running:
         )
 
         # Render the map to the placeholder
-        r = pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip={"text": "Vehicle ID: {id}\nStatus: {status}"}, map_style='road')
+        r = pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip={"text": "Vehicle ID: {id}\nStatus: {status}"}, map_style='dark')
         map_placeholder.pydeck_chart(r)
         
         # Throttle the loop so it doesn't crash your browser
