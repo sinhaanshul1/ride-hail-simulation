@@ -79,7 +79,7 @@ class Simulation:
             # Dispatcher calculates the pickup route
             pickup_route = self.city.get_route(
                 (vehicle._y, vehicle._x), # Assuming your city expects (lat, lon)
-                order.start_loc
+                order.start_loc[::-1]
             )
             
             # Hand off to the vehicle
