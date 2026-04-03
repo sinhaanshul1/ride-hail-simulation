@@ -59,7 +59,11 @@ class Simulation:
         """Create a new order with random start/end and assign to random vehicle"""
         start = self.city.get_random_point()
         end = self.city.get_random_point()
-        route = self.city.get_route(start[::-1], end[::-1])
+        try:
+            route = self.city.get_route(start[::-1], end[::-1])
+        except networkx.exception.NetworkXNoPath:
+            print("No path found for new random order, skipping creation")
+            return
         order = Order(start_loc=start, end_loc=end, creation_time=self.time, route=route)
 
         self.orders.append(order)
@@ -83,11 +87,11 @@ class Simulation:
             )
             
             # Hand off to the vehicle
-            vehicle.assign_order(order, pickup_route)
+            vehicle.assign_order(order, pickup_route, time=self.time)
             print(f"Dispatched Vehicle {vehicle.vehicle_id} to Order.")
             
         except networkx.exception.NetworkXNoPath:
-            print("No path found for dispatch, skipping.")
+            print("No path found for getting to the pickup location, skipping.")
             # Note: In a real system, you'd mark this order as 'UNROUTABLE' 
             # so it doesn't block the queue forever.
         # # 1. Find a match (Order + Idle Vehicle)
@@ -111,80 +115,8 @@ class Simulation:
     
     def _update_vehicles(self):
         for vehicle in self.vehicles:
-            vehicle.update(self.dt)
-        # for vehicle in self.vehicles:
-        #     vehicle.update(self.dt)
-        #     if vehicle.route_complete():
-        #         vehicle.set_route_complete(False)
-                
-        #         # Update order status based on what just completed
-        #         finished_order = vehicle.orders()[0] if vehicle.orders() else None
-        #         if finished_order:
-        #             if finished_order.status == OrderStatus.ASSIGNED:
-        #                 finished_order.pick_up(time=self.time)
-        #                 print(f"Order picked up at {self.time}")
-        #             elif finished_order.status == OrderStatus.PICKED_UP:
-        #                 finished_order.drop_off(time=self.time)
-        #                 print(f"Order dropped off at {self.time}")
+            vehicle.update(self.dt, self.time)
 
-        #         # Pop the completed route and its order
-        #         vehicle.routes().pop(0)
-        #         vehicle.orders().pop(0)
-        #         vehicle.segment_index = 0
-        #         vehicle.segment_progress = 0
-
-        #         # Insert bridging route if needed to reach next route's start
-        #         if vehicle.routes() and vehicle.routes()[0]:
-        #             next_start = vehicle.routes()[0][0][0].interpolate(0)
-        #             at_next_start = (
-        #                 abs(vehicle.x() - next_start.x) < 1e-4 and
-        #                 abs(vehicle.y() - next_start.y) < 1e-4
-        #             )
-        #             if not at_next_start:
-        #                 try:
-        #                     bridge = self.city.get_route(
-        #                         (vehicle.y(), vehicle.x()),
-        #                         (next_start.y, next_start.x)
-        #                     )
-        #                     vehicle.routes().insert(0, bridge)
-        #                     vehicle.orders().insert(0, None)  # bridging has no order → status stays derived from next real order
-        #                 except Exception:
-        #                     pass
-
-    # def _update_vehicles(self):
-    #     """Update vehicle positions"""
-    #     for vehicle in self.vehicles:
-    #         vehicle.update(self.dt)
-    #         if vehicle.route_complete():
-    #             if len(vehicle.routes()) == 0:
-    #                 vehicle.set_status(VehicleStatus.IDLE)
-    #             elif len(vehicle.routes()) == 1:
-    #                 vehicle.routes().pop(0)
-    #                 if vehicle.orders():
-    #                     vehicle.orders().pop(0)
-    #                 vehicle.segment_index = 0
-    #                 vehicle.segment_progress = 0
-    #                 print('Route complete, no more routes in queue')
-    #                 vehicle.set_status(VehicleStatus.IDLE)
-    #             else:
-    #                 if len(vehicle.orders()) == len(vehicle.routes()):
-    #                     vehicle.orders().pop(0)
-    #                     vehicle.routes().pop(0)
-    #                 else:
-    #                     vehicle.routes().pop(0)
-    #                 vehicle.segment_index = 0
-    #                 vehicle.segment_progress = 0
-                    
-    #                 # Use a small epsilon for coordinate comparison instead of direct equality
-    #                 if abs(vehicle.x() - vehicle.routes()[0][0][0].interpolate(0).x) < 1e-4 and abs(vehicle.y() - vehicle.routes()[0][0][0].interpolate(0).y) < 1e-4:
-    #                     vehicle.set_status(VehicleStatus.IN_ROUTE)
-    #                     if vehicle.orders():
-    #                          vehicle._orders[0].pick_up(time=self.time)
-    #                 else:
-    #                     vehicle.set_status(VehicleStatus.TO_PICKUP)
-    #                     vehicle.routes().insert(0, self.city.get_route((vehicle.y(), vehicle.x()), (vehicle.routes()[0][0][0].interpolate(0).y, vehicle.routes()[0][0][0].interpolate(0).x)))
-    #                 vehicle.set_route_complete(False)
-    
     def _assign_orders(self):
         if np.random.uniform(0, 1) < 0.1: # 10% chance of new order each step
             start = self.city.get_random_point()
@@ -235,6 +167,7 @@ class Simulation:
                 "pickup_time": o.pickup_time,
                 "dropoff_time": o.dropoff_time
             })
+        # print(len(data), "orders in get_order_data")
         return data
 
 
@@ -284,61 +217,3 @@ class Simulation:
             self.scatter = self.ax.scatter([], [], s=30, c=[], zorder=5)
 
         return (self.scatter,)
-
-    # def run(self, steps=500, interval=50):
-    #     """
-    #     Run animated simulation
-    #     steps: number of animation frames
-    #     interval: ms between frames
-    #     """
-
-    #     self.setup_visualization()
-    #     x_min, x_max = self.ax.get_xlim()
-    #     y_min, y_max = self.ax.get_ylim()
-
-    #     num_vehicles = 100
-    #     for i in range(num_vehicles):
-    #         x,y = self.city.get_random_point()
-    #         self.vehicles.append(Vehicle(x=x, y=y, vehicle_id=i+3, speed_mps=12))
-        
-
-    #     for _ in range(1000):
-    #         try:
-    #             self.vehicles[int(np.random.uniform(0, len(self.vehicles)-1))].assign_route(self.city.get_route((np.random.uniform(y_min, y_max), np.random.uniform(x_min, x_max)), (np.random.uniform(y_min, y_max), np.random.uniform(x_min, x_max))))
-    #         except networkx.exception.NetworkXNoPath:
-    #             print("No path found for random route, skipping assignment")
-
-
-    #     anim = FuncAnimation(
-    #         self.fig,
-    #         self._animate,
-    #         frames=steps,
-    #         interval=interval,
-    #         blit=True
-    #     )
-
-    #     plt.show()
-
-# if __name__ == "__main__":
-#     city = City()
-#     # city.load_city_from_address("1449 Primrose Way, Cupertino, CA", radius=10000)
-#     city.load_city_from_address("415 Mission Street, San Francisco, CA", radius=10000)
-#     # city.load_city_from_place("San Francisco, CA")
-#     vehicles = [
-#         Vehicle(x=-122.035953, y=37.297, vehicle_id=1, speed_mps=12),
-#         Vehicle(x=0, y=0, vehicle_id=2, speed_mps=12),
-
-
-#     ]
-
-#     sim = Simulation(city, vehicles)
-    
-
-#     # route_geom_1 = city.get_route_by_address("1449 Primrose Way, Cupertino, CA", "10050 S De Anza Blvd, Cupertino, CA")
-#     # route_geom_2 = city.get_route_by_address("7658 Normandy Way, Cupertino, CA", "7483 Moltzen Drive, Cupertino, CA")
-#     # vehicles[0].assign_route(route_geom_1)
-#     # vehicles[0].assign_route(route_geom_2)
-#     # vehicles[0].assign_route(city.get_route_by_address("7588 Lockford Court, Cupertino, CA", "7658 Normandy Way, Cupertino, CA"))
-#     # vehicles[0].assign_route(city.get_route_by_address("7658 Normandy Way, Cupertino, CA", "7483 Moltzen Drive, Cupertino, CA"))
-#     # vehicles[1].assign_route(route_geom_2)
-#     sim.run()

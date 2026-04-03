@@ -1,4 +1,3 @@
-# app.py
 import networkx
 import streamlit as st
 import pandas as pd
@@ -23,7 +22,7 @@ def init_city_and_sim():
     
     vehicles = []
     # Initialize your 100 vehicles like you did in run()
-    for i in range(1):
+    for i in range(100):
         x, y = city.get_random_point()
         vehicles.append(Vehicle(x=x, y=y, vehicle_id=i, speed_mps=12))
         
@@ -59,7 +58,7 @@ col1, col2, col3, col4 = st.columns(4)
 metric_time = col1.empty()
 metric_active = col2.empty()
 metric_idle = col3.empty()
-metric_active_orders = col4.empty()
+metric_avg_wait = col4.empty()
 
 # This is where the map will be drawn
 map_placeholder = st.empty()
@@ -131,8 +130,15 @@ if st.session_state.running:
         metric_time.metric("Sim Time", f"{sim.time:.1f}s")
         metric_active.metric("Active Cars", len(vehicle_df[vehicle_df['status'] != 'VehicleStatus.IDLE']))
         metric_idle.metric("Idle Cars", len(vehicle_df[vehicle_df['status'] == 'VehicleStatus.IDLE']))
-        metric_active_orders.metric("Orders", len(order_df[order_df['status'] == 'OrderStatus.DROPPED_OFF']))
-        # metric_active_orders.metric("Current orders", len(order_df))
+        
+        picked_up_mask = order_df['pickup_time'].notna()
+        print(order_df[picked_up_mask][['creation_time', 'pickup_time']])
+        if picked_up_mask.any():
+
+            avg_wait = (order_df.loc[picked_up_mask, 'pickup_time'] - order_df.loc[picked_up_mask, 'creation_time']).mean()
+            metric_avg_wait.metric("Avg Wait Time", f"{avg_wait:.1f}s")
+        else:
+            metric_avg_wait.metric("Avg Wait Time", "N/A")
 
         # Define the PyDeck layer
         layer = pdk.Layer(

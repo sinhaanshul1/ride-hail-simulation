@@ -34,7 +34,7 @@ class Vehicle:
         if self.status == VehicleStatus.OFFLINE: return 'grey'
         return 'green'
 
-    def assign_order(self, order, pickup_route):
+    def assign_order(self, order, pickup_route, time=None):
         """Handoff from the Dispatcher to the Vehicle."""
         self.current_order = order
         self.active_route = pickup_route
@@ -42,13 +42,13 @@ class Vehicle:
         self.status = VehicleStatus.TO_PICKUP
         
         self.current_order.set_status(OrderStatus.ASSIGNED)
-        self.current_order.assign_vehicle(self)
+        self.current_order.assign_vehicle(self, time)
         
         # Reset movement trackers for the new route
         self.segment_index = 0
         self.segment_progress = 0
 
-    def update(self, dt):
+    def update(self, dt, current_time):
         """Advances the vehicle along its active route by dt."""
         if self.status == VehicleStatus.IDLE or not self.active_route:
             return
@@ -69,13 +69,13 @@ class Vehicle:
             
             # 3. Check if we finished the ENTIRE route
             if self.segment_index >= len(self.active_route):
-                self._handle_route_completion()
+                self._handle_route_completion(current_time)
 
-    def _handle_route_completion(self):
+    def _handle_route_completion(self, current_time):
         """Internal FSM logic for when a route ends."""
         if self.status == VehicleStatus.TO_PICKUP:
             # Arrived at pickup! Transition to trip route.
-            self.current_order.pick_up() 
+            self.current_order.pick_up(current_time) 
             self.status = VehicleStatus.IN_ROUTE
             
             self.active_route = self.current_order.route # Swap to trip route
@@ -84,7 +84,7 @@ class Vehicle:
             
         elif self.status == VehicleStatus.IN_ROUTE:
             # Arrived at dropoff! Transition to idle.
-            self.current_order.drop_off()
+            self.current_order.drop_off(current_time)
             self.status = VehicleStatus.IDLE
             
             self.active_route = []
